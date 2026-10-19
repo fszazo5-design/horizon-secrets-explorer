@@ -15,3 +15,6 @@ android-native/local.properties
 *.jks
 *.keystore
 artifacts/
+
+# Local Android signing material (never commit)
+android-signing/
