@@ -74,11 +74,11 @@ jobs:
         working-directory: worker
         run: |
           set -euo pipefail
-          output="$(wrangler deploy --config=wrangler.deploy.toml 2>&1 | tee /dev/stderr)"
-          worker_url="$(printf '%s\n' "$output" | grep -Eo 'https://[^ ]+workers\.dev' | tail -n 1 || true)"
-          if [ -z "$worker_url" ]; then
-            worker_url="https://${WORKER_NAME}.${CLOUDFLARE_ACCOUNT_ID}.workers.dev"
-          fi
+          wrangler deploy --config=wrangler.deploy.toml
+          subdomain="$(curl --fail --silent --show-error --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" --header 'Content-Type: application/json' "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | jq -r '.result.subdomain')"
+          test -n "$subdomain"
+          test "$subdomain" != "null"
+          worker_url="https://${WORKER_NAME}.${subdomain}.workers.dev"
           echo "worker_url=$worker_url" >> "$GITHUB_OUTPUT"
 
       - name: Verify Worker health
