@@ -13,6 +13,19 @@ function endpoint(): string | undefined {
   return value || undefined
 }
 
+function playerId(): string {
+  const key = 'horizon-secrets.player-id'
+  try {
+    const current = localStorage.getItem(key)
+    if (current) return current
+    const next = globalThis.crypto?.randomUUID?.() || `guest-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    localStorage.setItem(key, next)
+    return next
+  } catch {
+    return 'guest-session'
+  }
+}
+
 export async function syncProgress(save: SaveData): Promise<SyncResult> {
   const url = endpoint()
   if (!url || !navigator.onLine) return { status: 'offline' }
@@ -20,7 +33,7 @@ export async function syncProgress(save: SaveData): Promise<SyncResult> {
   try {
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'x-player-id': playerId() },
       body: JSON.stringify({ game: 'horizon-secrets', version: 1, progress: save }),
       keepalive: true,
     })

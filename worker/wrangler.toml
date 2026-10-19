@@ -1,0 +1,13 @@
+name = "horizon-secrets-sync"
+main = "src/index.ts"
+compatibility_date = "2026-10-19"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "horizon-secrets"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+[vars]
+# Set this to the GitHub Pages origin in production; * is only suitable for a prototype.
+ALLOWED_ORIGIN = "*"
