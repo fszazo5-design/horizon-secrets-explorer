@@ -3,6 +3,7 @@ package com.horizon.secrets
 import android.os.Bundle
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.backends.android.AndroidApplication
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
 import com.horizon.secrets.game.HorizonGame
@@ -32,7 +33,16 @@ class MainActivity : AndroidApplication() {
             // Avoid EGL/MSAA crashes on devices that do not expose multisampling.
             numSamples = 0
         }
-        hud = HudOverlay(this, touch) { game.startLevel(it) }
+        hud = HudOverlay(
+            this,
+            touch,
+            onLevelSelected = { index ->
+                if (::game.isInitialized) Gdx.app.postRunnable { game.startLevel(index) }
+            },
+            onCharacterSelected = { index ->
+                if (::game.isInitialized) Gdx.app.postRunnable { game.selectCharacter(index) }
+            },
+        )
         val root = FrameLayout(this)
         root.layoutDirection = ViewGroup.LAYOUT_DIRECTION_RTL
         root.addView(hud, FrameLayout.LayoutParams(-1, -1))
