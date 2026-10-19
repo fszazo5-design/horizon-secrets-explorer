@@ -33,8 +33,10 @@ jobs:
             echo "HORIZON_KEY_ALIAS=${{ secrets.HORIZON_KEY_ALIAS }}"
             echo "HORIZON_KEY_PASSWORD=${{ secrets.HORIZON_KEY_PASSWORD }}"
           } >> "$HOME/.gradle/gradle.properties"
-      - run: gradle bundleRelease --no-daemon
+      - run: gradle assembleRelease bundleRelease --no-daemon
       - uses: actions/upload-artifact@v4
         with:
-          name: horizon-secrets-release-aab
-          path: android-native/app/build/outputs/bundle/release/app-release.aab
+          name: horizon-secrets-release
+          path: |
+            android-native/app/build/outputs/bundle/release/app-release.aab
+            android-native/app/build/outputs/apk/release/app-release.apk
