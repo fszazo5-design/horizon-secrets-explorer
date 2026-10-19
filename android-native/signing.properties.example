@@ -1,0 +1,5 @@
+# Copy these keys to ~/.gradle/gradle.properties, never commit real values.
+HORIZON_STORE_FILE=/secure/path/horizon-upload.jks
+HORIZON_STORE_PASSWORD=change-me
+HORIZON_KEY_ALIAS=horizon
+HORIZON_KEY_PASSWORD=change-me

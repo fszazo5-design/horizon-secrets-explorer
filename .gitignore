@@ -6,3 +6,11 @@ shots/
 /assets/models/explorer.glb
 /assets/models/horizon-gate.glb
 /assets/share/favicon.png
+
+# Android/Gradle outputs and local signing material
+android-native/.gradle/
+android-native/build/
+android-native/app/build/
+android-native/local.properties
+*.jks
+*.keystore
