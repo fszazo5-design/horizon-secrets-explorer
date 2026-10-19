@@ -18,3 +18,4 @@ artifacts/
 
 # Local Android signing material (never commit)
 android-signing/
+worker/wrangler.deploy.toml
