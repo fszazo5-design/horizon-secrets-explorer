@@ -29,8 +29,15 @@ class MainActivity : AndroidApplication() {
             useImmersiveMode = true
             useAccelerometer = false
             useCompass = false
-            numSamples = 2
+            // Avoid EGL/MSAA crashes on devices that do not expose multisampling.
+            numSamples = 0
         }
+        hud = HudOverlay(this, touch) { game.startLevel(it) }
+        val root = FrameLayout(this)
+        root.layoutDirection = ViewGroup.LAYOUT_DIRECTION_RTL
+        root.addView(hud, FrameLayout.LayoutParams(-1, -1))
+        setContentView(root)
+
         game = HorizonGame(touch, { hud.updateHud(it) }) { level, score ->
             scope.launch {
                 val current = container.progressRepository.load()
@@ -41,13 +48,8 @@ class MainActivity : AndroidApplication() {
                 ProgressSyncWorker.enqueue(this@MainActivity)
             }
         }
-        hud = HudOverlay(this, touch) { game.startLevel(it) }
         val gameView = initializeForView(game, config)
-        val root = FrameLayout(this)
-        root.layoutDirection = ViewGroup.LAYOUT_DIRECTION_RTL
-        root.addView(gameView, FrameLayout.LayoutParams(-1, -1))
-        root.addView(hud, FrameLayout.LayoutParams(-1, -1))
-        setContentView(root)
+        root.addView(gameView, 0, FrameLayout.LayoutParams(-1, -1))
         scope.launch {
             val progress = container.progressRepository.load()
             hud.updateProgress(progress.unlockedLevels, progress.completedLevels)
