@@ -76,7 +76,7 @@ class HorizonGame(
             crystal.transform.setToTranslation(cos(angle) * radius, 0.45f + (i % 4) * 0.55f, sin(angle) * radius)
             objects += crystal
             if (i % 2 == 0) {
-                val core = ModelInstance(builder.createSphere(0.55f, 0.55f, 0.55f, Material(ColorAttribute.createDiffuse(Color.GOLD)), 12, 12, 1L or 8L))
+                val core = ModelInstance(builder.createSphere(0.55f, 0.55f, 0.55f, 12, 12, Material(ColorAttribute.createDiffuse(Color.GOLD)), 1L or 8L))
                 val corePosition = Vector3(cos(angle) * radius, 1.3f + (i % 4) * 0.55f, sin(angle) * radius)
                 core.transform.setToTranslation(corePosition)
                 cores += Core(core, corePosition)
