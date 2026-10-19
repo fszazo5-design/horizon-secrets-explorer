@@ -1,5 +1,5 @@
 export interface Env {
-  DB: D1Database
+  PLAYER_PROGRESS: KVNamespace
   ALLOWED_ORIGIN?: string
 }
 
@@ -35,7 +35,7 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(env) })
     const url = new URL(request.url)
-    if (url.pathname === '/health') return json({ ok: true, service: 'horizon-secrets-sync' }, env)
+    if (url.pathname === '/health') return json({ ok: true, service: 'horizon-secrets-sync', storage: 'kv' }, env)
     if (url.pathname !== '/sync' || request.method !== 'POST') return json({ error: 'not_found' }, env, 404)
     const playerId = (request.headers.get('x-player-id') || '').trim().slice(0, 128)
     if (!playerId) return json({ error: 'missing_player_id' }, env, 400)
@@ -43,11 +43,7 @@ export default {
     try { body = await request.json() as typeof body } catch { return json({ error: 'invalid_json' }, env, 400) }
     if (body.game !== 'horizon-secrets' || body.version !== 1) return json({ error: 'unsupported_payload' }, env, 422)
     const progress = sanitizeProgress(body.progress)
-    const bestScore = Math.max(0, ...(progress.leaderboard || []).map(entry => Number(entry.score) || 0))
-    await env.DB.prepare(`INSERT INTO player_progress(player_id, progress_json, best_score, updated_at)
-      VALUES (?1, ?2, ?3, ?4)
-      ON CONFLICT(player_id) DO UPDATE SET progress_json=excluded.progress_json, best_score=MAX(player_progress.best_score, excluded.best_score), updated_at=excluded.updated_at`)
-      .bind(playerId, JSON.stringify(progress), bestScore, Date.now()).run()
+    await env.PLAYER_PROGRESS.put(`player:${playerId}`, JSON.stringify({ game: 'horizon-secrets', version: 1, progress, updatedAt: Date.now() }))
     return json({ ok: true, savedAt: Date.now() }, env)
   },
 }
