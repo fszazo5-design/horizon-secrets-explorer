@@ -41,8 +41,8 @@ class MainActivity : AndroidApplication() {
                 ProgressSyncWorker.enqueue(this@MainActivity)
             }
         }
-        val gameView = initializeForView(game, config)
         hud = HudOverlay(this, touch) { game.startLevel(it) }
+        val gameView = initializeForView(game, config)
         val root = FrameLayout(this)
         root.layoutDirection = ViewGroup.LAYOUT_DIRECTION_RTL
         root.addView(gameView, FrameLayout.LayoutParams(-1, -1))
