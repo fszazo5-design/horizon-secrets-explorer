@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node scripts/manus-game-assets/restore.mjs && vite",
     "build": "node scripts/manus-game-assets/restore.mjs && node scripts/manus-game-sharing/build.mjs",
+    "build:github": "tsc --noEmit && vite build && node scripts/check-size.mjs",
     "preview": "vite preview --port 4173 --strictPort",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
