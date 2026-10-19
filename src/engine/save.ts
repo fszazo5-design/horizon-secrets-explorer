@@ -1,15 +1,12 @@
 /**
- * Versioned local save. Everything the player keeps between sessions lives in one JSON record so
- * it is easy to migrate. Corrupt or foreign data falls back to defaults instead of crashing.
+ * Versioned local save. Progress is deliberately local-first: the game remains fully playable
+ * offline, while an optional sync adapter can mirror this record when a backend is configured.
  */
 export type Locale = 'en' | 'zh-CN'
 export type Quality = 'low' | 'medium' | 'high'
-
-export type ScoreEntry = { name: string; score: number; seconds: number; at: number }
-
+export type ScoreEntry = { name: string; score: number; seconds: number; at: number; level?: number }
 export type SaveData = {
   version: 1
-  /** '' = never chosen; the game follows the browser language until the player picks one. */
   locale: Locale | ''
   musicVolume: number
   sfxVolume: number
@@ -21,11 +18,14 @@ export type SaveData = {
   tutorialDone: boolean
   playerName: string
   leaderboard: ScoreEntry[]
+  unlockedLevels: number
+  completedLevels: boolean[]
+  lastLevel: number
+  lastSyncAt: number
 }
-
-export const SAVE_KEY = 'game3d.save'
+export const SAVE_KEY = 'horizon-secrets.save'
 export const LEADERBOARD_SIZE = 10
-
+export const LEVEL_COUNT = 4
 export function defaultSave(): SaveData {
   return {
     version: 1,
@@ -38,13 +38,16 @@ export function defaultSave(): SaveData {
     quality: 'high',
     reducedMotion: false,
     tutorialDone: false,
-    playerName: 'PLAYER',
+    playerName: 'مستكشف',
     leaderboard: [],
+    unlockedLevels: 1,
+    completedLevels: Array.from({ length: LEVEL_COUNT }, (_, i) => i === 0),
+    lastLevel: 0,
+    lastSyncAt: 0,
   }
 }
-
 const clamp01 = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : fallback)
-
+const clampInt = (v: unknown, fallback: number, min: number, max: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, Math.floor(v))) : fallback)
 /** Parse untrusted stored JSON into a valid SaveData (pure; unit tested). */
 export function parseSave(raw: string | null): SaveData {
   const base = defaultSave()
@@ -59,6 +62,12 @@ export function parseSave(raw: string | null): SaveData {
   }
   if (data.version !== 1) return base
   const board = Array.isArray(data.leaderboard) ? data.leaderboard : []
+  const completedRaw = Array.isArray(data.completedLevels) ? data.completedLevels : undefined
+  const completed = completedRaw
+    ? Array.from({ length: LEVEL_COUNT }, (_, i) => completedRaw[i] === true)
+    : base.completedLevels
+  const firstLocked = completed.findIndex(done => !done)
+  const unlocked = clampInt(data.unlockedLevels, firstLocked < 0 ? LEVEL_COUNT : Math.max(1, firstLocked + 1), 1, LEVEL_COUNT)
   return {
     version: 1,
     locale: data.locale === 'en' || data.locale === 'zh-CN' ? data.locale : '',
@@ -73,20 +82,21 @@ export function parseSave(raw: string | null): SaveData {
     playerName: typeof data.playerName === 'string' && data.playerName.trim() ? data.playerName.trim().slice(0, 16) : base.playerName,
     leaderboard: board
       .filter((e): e is ScoreEntry => !!e && typeof e === 'object' && typeof (e as ScoreEntry).name === 'string' && Number.isFinite((e as ScoreEntry).score))
-      .map(e => ({ name: e.name.slice(0, 16), score: Math.max(0, Math.floor(e.score)), seconds: Number.isFinite(e.seconds) ? e.seconds : 0, at: Number.isFinite(e.at) ? e.at : 0 }))
+      .map(e => ({ name: e.name.slice(0, 16), score: Math.max(0, Math.floor(e.score)), seconds: Number.isFinite(e.seconds) ? e.seconds : 0, at: Number.isFinite(e.at) ? e.at : 0, level: Number.isFinite(e.level) ? clampInt(e.level, 0, 0, LEVEL_COUNT - 1) : 0 }))
       .slice(0, LEADERBOARD_SIZE),
+    unlockedLevels: unlocked,
+    completedLevels: completed,
+    lastLevel: clampInt(data.lastLevel, 0, 0, LEVEL_COUNT - 1),
+    lastSyncAt: typeof data.lastSyncAt === 'number' && Number.isFinite(data.lastSyncAt) ? Math.max(0, data.lastSyncAt) : 0,
   }
 }
-
 /** Insert a run into a bounded, deterministically ordered leaderboard (higher score, then faster, then earlier). */
 export function insertScore(board: ScoreEntry[], entry: ScoreEntry): { board: ScoreEntry[]; rank: number } {
   const next = [...board, entry].sort((a, b) => b.score - a.score || a.seconds - b.seconds || a.at - b.at).slice(0, LEADERBOARD_SIZE)
   return { board: next, rank: next.indexOf(entry) }
 }
-
 export class SaveStore {
   data: SaveData
-
   constructor(private readonly storage: Pick<Storage, 'getItem' | 'setItem'> | undefined = globalThis.localStorage) {
     let raw: string | null = null
     try {
@@ -96,7 +106,6 @@ export class SaveStore {
     }
     this.data = parseSave(raw)
   }
-
   update(patch: Partial<SaveData>): void {
     this.data = { ...this.data, ...patch }
     try {
@@ -104,5 +113,6 @@ export class SaveStore {
     } catch {
       // Private browsing or quota: the game keeps working with in-memory settings.
     }
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('horizon:save-changed', { detail: this.data }))
   }
 }

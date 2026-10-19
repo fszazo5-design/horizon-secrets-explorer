@@ -22,7 +22,8 @@ export class I18n {
 
   constructor(locale: Locale) {
     this.locale = locale
-    document.documentElement.lang = locale
+    document.documentElement.lang = 'ar'
+    document.documentElement.dir = 'rtl'
   }
 
   /** Look up `key`, replacing `{name}` placeholders. Missing keys render the key so gaps are visible. */
@@ -34,7 +35,8 @@ export class I18n {
   set(locale: Locale): void {
     if (locale === this.locale) return
     this.locale = locale
-    document.documentElement.lang = locale
+    document.documentElement.lang = 'ar'
+    document.documentElement.dir = 'rtl'
     for (const fn of this.listeners) fn(locale)
   }
 

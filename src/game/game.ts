@@ -45,6 +45,7 @@ export class Game {
   private readonly fx = new Effects()
   private simTime = 0
   private time = 0
+  private levelIndex = 0
   private tutorial: Hint | null = null
   private tutorialStart = new THREE.Vector3()
   private readonly down = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 })
@@ -62,7 +63,7 @@ export class Game {
     this.cores = new Collectibles(this.world.coreSpots)
     this.drones = new Drones(this.physics, this.world.droneRoutes)
     this.world.scene.add(this.player.root, this.player.shadowMesh, this.cores.group, this.drones.group, this.fx.mesh)
-    this.run = createRun(this.cores.total)
+    this.run = createRun(this.cores.total, CONFIG, this.levelIndex)
     this.cam.reset(this.world.spawn, 0.6)
   }
 
@@ -71,7 +72,9 @@ export class Game {
   }
 
   /** Begin (or restart) a run. `tutorial` shows first-time control hints. */
-  start(tutorial: boolean): void {
+  start(tutorial: boolean, levelIndex = 0): void {
+    this.levelIndex = THREE.MathUtils.clamp(Math.floor(levelIndex), 0, 3)
+    this.world.setLevel(this.levelIndex)
     tuning.activate('run')
     this.cores.reset()
     this.fx.clear()
@@ -79,7 +82,7 @@ export class Game {
     this.player.facing = 0
     this.cam.pitch = 0.42
     this.cam.reset(this.world.spawn, 0)
-    this.run = { ...createRun(this.cores.total), unranked: tuning.unranked }
+    this.run = { ...createRun(this.cores.total, CONFIG, this.levelIndex), unranked: tuning.unranked }
     this.mode = 'playing'
     this.input.endFrame()
     this.input.takeLook()

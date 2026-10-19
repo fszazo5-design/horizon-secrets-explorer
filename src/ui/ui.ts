@@ -4,12 +4,13 @@ import type { Input } from '../engine/input'
 import { insertScore, type Locale, type Quality, type SaveData, type SaveStore } from '../engine/save'
 import { CONFIG } from '../game/config'
 import type { Compass, Hint } from '../game/game'
+import { LEVELS } from '../game/levels'
 import { formatClock, stars, type RunState } from '../game/rules'
 
-export type Screen = 'boot' | 'title' | 'hud' | 'pause' | 'settings' | 'leaderboard' | 'results'
+export type Screen = 'boot' | 'title' | 'map' | 'hud' | 'pause' | 'settings' | 'leaderboard' | 'results'
 
 export type UiActions = {
-  play(): void
+  play(level?: number): void
   resume(): void
   restart(): void
   quit(): void
@@ -95,6 +96,7 @@ export class Ui {
     }
     this.root.dataset.activeScreen = screen
     if (screen === 'title') this.renderBest()
+    if (screen === 'map') this.renderLevels()
     if (screen === 'leaderboard') this.renderLeaderboard()
     if (screen === 'hud') this.stormShown = false
     // Focus the first control so keyboard and gamepad players can act immediately.
@@ -228,7 +230,7 @@ export class Ui {
   }
 
   private entry(run: RunState) {
-    return { name: this.q<HTMLInputElement>('.results-name')?.value.trim().slice(0, 16) || this.save.data.playerName, score: run.score, seconds: Math.round(run.elapsed), at: Date.now() }
+    return { name: this.q<HTMLInputElement>('.results-name')?.value.trim().slice(0, 16) || this.save.data.playerName, score: run.score, seconds: Math.round(run.elapsed), at: Date.now(), level: run.levelIndex }
   }
 
   private saveScore(): void {
@@ -261,6 +263,22 @@ export class Ui {
     const el = this.q('.title-best')
     el.classList.toggle('is-hidden', best <= 0)
     el.textContent = this.i18n.t('menu.best', { score: best.toLocaleString(this.i18n.locale) })
+  }
+
+  private renderLevels(): void {
+    const list = this.q('.level-list')
+    const completed = this.save.data.completedLevels.filter(Boolean).length
+    this.q('.map-progress').textContent = this.i18n.t('map.progress', { done: completed })
+    this.q('.map-offline').textContent = this.i18n.t('map.offline')
+    list.innerHTML = LEVELS.map(level => {
+      const unlocked = level.id < this.save.data.unlockedLevels
+      const done = this.save.data.completedLevels[level.id] === true
+      return `<article class="level-card ${unlocked ? '' : 'is-locked'} ${done ? 'is-complete' : ''}" style="--level-accent:${level.accent};--level-soft:${level.accentSoft}">
+        <div class="level-glyph" aria-hidden="true">${level.glyph}</div>
+        <div class="level-copy"><small>${level.kicker}</small><h3>${level.name}</h3><p>${level.description}</p><span class="level-puzzle">${this.i18n.t('map.puzzle')}: ${level.puzzle}</span></div>
+        <button data-nav class="level-enter" data-action="play" data-level="${level.id}" ${unlocked ? '' : 'disabled'}>${done ? this.i18n.t('map.completed') : unlocked ? this.i18n.t('map.play') : this.i18n.t('map.locked')}</button>
+      </article>`
+    }).join('')
   }
 
   // ─── settings ───────────────────────────────────────────────────────────
@@ -308,7 +326,8 @@ export class Ui {
     }
     const action = target.dataset.action
     switch (action) {
-      case 'play': this.actions.play(); break
+      case 'play': this.actions.play(Number(target.dataset.level ?? this.save.data.lastLevel)); break
+      case 'levels': this.push('map'); break
       case 'resume': this.actions.resume(); break
       case 'restart': this.actions.restart(); break
       case 'quit': this.actions.quit(); break
@@ -463,11 +482,20 @@ export class Ui {
     <p class="tagline" data-i18n="game.tagline"></p>
     <nav class="menu">
       <button data-nav class="btn btn-primary" data-action="play"><span data-i18n="menu.play"></span></button>
+      <button data-nav class="btn" data-action="levels"><span data-i18n="menu.levels"></span></button>
       <button data-nav class="btn" data-action="leaderboard"><span data-i18n="menu.leaderboard"></span></button>
       <button data-nav class="btn" data-action="settings"><span data-i18n="menu.settings"></span></button>
     </nav>
   </div>
   <footer class="bottom-bar"><div class="prompts"></div><small data-i18n="credits.fonts"></small></footer>
+</section>
+
+<section class="screen screen-map screen-modal" data-screen="map">
+  <div class="map-shell">
+    <header class="map-header"><div><span class="eyebrow" data-i18n="map.eyebrow"></span><h2 class="modal-title" data-i18n="map.title"></h2></div><div class="map-meta"><b class="map-progress"></b><span class="map-offline"></span></div></header>
+    <div class="level-list"></div>
+    <nav class="menu menu-row"><button data-nav class="btn" data-action="back"><span data-i18n="menu.back"></span></button></nav>
+  </div>
 </section>
 
 <section class="screen screen-hud" data-screen="hud">

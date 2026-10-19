@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { Physics } from '../engine/physics'
 import { RAPIER } from '../engine/physics'
 
@@ -44,17 +45,23 @@ const MAX_GAP = 2.3
 const MAX_RISE = 1.05
 
 export const PALETTE = {
-  skyTop: new THREE.Color('#2f6fd6'),
-  horizon: new THREE.Color('#ffd9b0'),
-  grass: new THREE.Color('#79cf6e'),
-  grassDark: new THREE.Color('#4fae5e'),
-  rock: new THREE.Color('#8b6b58'),
-  rockDark: new THREE.Color('#5d4639'),
-  stone: new THREE.Color('#e3cfa6'),
-  leaf: [new THREE.Color('#3f9a57'), new THREE.Color('#5bb85d'), new THREE.Color('#e0a44a')],
-  trunk: new THREE.Color('#7a4f35'),
-  crystal: new THREE.Color('#7ee8ff'),
+  skyTop: new THREE.Color('#071a3b'),
+  horizon: new THREE.Color('#102b48'),
+  grass: new THREE.Color('#1d7180'),
+  grassDark: new THREE.Color('#124754'),
+  rock: new THREE.Color('#273958'),
+  rockDark: new THREE.Color('#101c32'),
+  stone: new THREE.Color('#3f7690'),
+  leaf: [new THREE.Color('#3dbeaa'), new THREE.Color('#65d7c3'), new THREE.Color('#b58cf4')],
+  trunk: new THREE.Color('#34506a'),
+  crystal: new THREE.Color('#62e6ff'),
 }
+const WORLD_THEMES = [
+  { top: '#071a3b', horizon: '#102b48', light: '#bdefff', intensity: 2.1 },
+  { top: '#160f3b', horizon: '#2e1e59', light: '#dec9ff', intensity: 1.9 },
+  { top: '#062d3b', horizon: '#124f62', light: '#b8fff0', intensity: 2.2 },
+  { top: '#321b16', horizon: '#5d3c2b', light: '#ffe4b0', intensity: 2.35 },
+]
 
 /** Mulberry32: tiny deterministic RNG so the level never changes between loads. */
 export function rng(seed: number): () => number {
@@ -111,13 +118,15 @@ export class World {
   readonly droneRoutes: DroneRoute[] = []
   readonly movers: MovingPlatform[] = []
   private clouds: THREE.Object3D[] = []
+  private sky?: THREE.Mesh
 
   constructor(private readonly physics: Physics, shadowMapSize: number) {
     const random = rng(1337)
     this.scene.background = PALETTE.horizon.clone()
     this.scene.fog = new THREE.Fog(PALETTE.horizon, 45, 150)
 
-    this.scene.add(this.makeSky())
+    this.sky = this.makeSky()
+    this.scene.add(this.sky)
     this.scene.add(new THREE.HemisphereLight('#cfe8ff', '#6b5242', 1.0))
     this.sun = new THREE.DirectionalLight('#fff0d8', 2.1)
     this.sun.castShadow = true
@@ -140,6 +149,7 @@ export class World {
     }
     this.addClouds(random)
     this.addDistantIslands(random)
+    this.addHorizonGate()
 
     // Patrol drones circle over the larger islands (never the spawn hub); the summit gets a tight guard.
     for (const i of [1, 3, 5, 7]) {
@@ -148,6 +158,21 @@ export class World {
     }
     const summit = ISLANDS[9]
     this.droneRoutes.push({ center: new THREE.Vector3(summit.x, summit.top + 1.1, summit.z), radius: 1.9, phase: 0, dir: 1 })
+  }
+
+  setLevel(levelIndex: number): void {
+    const theme = WORLD_THEMES[THREE.MathUtils.clamp(Math.floor(levelIndex), 0, WORLD_THEMES.length - 1)]
+    const top = new THREE.Color(theme.top)
+    const horizon = new THREE.Color(theme.horizon)
+    this.scene.background = horizon.clone()
+    if (this.scene.fog instanceof THREE.Fog) this.scene.fog.color.copy(horizon)
+    this.sun.color.set(theme.light)
+    this.sun.intensity = theme.intensity
+    const material = this.sky?.material
+    if (material instanceof THREE.ShaderMaterial) {
+      material.uniforms.top.value = top
+      material.uniforms.horizon.value = horizon
+    }
   }
 
   /** Per-frame ambience (clouds, shadow frustum follows the player). */
@@ -206,6 +231,36 @@ export class World {
     const sky = new THREE.Mesh(new THREE.SphereGeometry(400, 32, 16), mat)
     sky.renderOrder = -1
     return sky
+  }
+
+  /** The generated gate is decorative in v1; the collectible route remains the clear objective. */
+  private addHorizonGate(): void {
+    const gatePosition = new THREE.Vector3(0, 11.05, -12)
+    const fallback = new THREE.Mesh(new THREE.TorusGeometry(1.8, 0.18, 8, 24), glow(PALETTE.crystal, 2.6))
+    fallback.rotation.x = Math.PI / 2
+    fallback.position.copy(gatePosition)
+    this.scene.add(fallback)
+    if (typeof window === 'undefined') return
+    const loader = new GLTFLoader()
+    loader.load(`${import.meta.env.BASE_URL}assets/models/horizon-gate.glb`, gltf => {
+      fallback.visible = false
+      const model = gltf.scene
+      model.position.copy(gatePosition)
+      model.scale.setScalar(1.65)
+      model.traverse(child => {
+        const mesh = child as THREE.Mesh
+        if (mesh.isMesh) {
+          mesh.castShadow = true
+          mesh.receiveShadow = true
+        }
+      })
+      this.scene.add(model)
+    }, undefined, () => {
+      // The procedural ring is intentionally retained as an offline-safe placeholder.
+    })
+    const beacon = new THREE.PointLight('#62e6ff', 5, 12, 2)
+    beacon.position.copy(gatePosition).setY(gatePosition.y + 1)
+    this.scene.add(beacon)
   }
 
   private addIsland(isl: Island, index: number, random: () => number): void {

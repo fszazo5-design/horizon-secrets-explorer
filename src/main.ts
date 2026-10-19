@@ -4,6 +4,7 @@ import { I18n, resolveLocale } from './engine/i18n'
 import { Input } from './engine/input'
 import { GameLoop } from './engine/loop'
 import { SAVE_KEY, SaveStore, type SaveData } from './engine/save'
+import { syncProgress } from './engine/sync'
 import type { Game } from './game/game'
 import { TouchControls } from './ui/touch'
 import { Ui } from './ui/ui'
@@ -26,11 +27,12 @@ async function boot(): Promise<void> {
     if (game) game.reducedMotion = d.reducedMotion
   }
 
-  const startRun = (tutorial: boolean) => {
+  const startRun = (tutorial: boolean, level = save.data.lastLevel) => {
     if (!game) return
     audio.unlock()
     audio.startMusic()
-    game.start(tutorial)
+    save.update({ lastLevel: level })
+    game.start(tutorial, level)
     ui.show('hud')
     loop.resetAccumulator()
     input.lockPointer()
@@ -50,8 +52,8 @@ async function boot(): Promise<void> {
   }
 
   const ui = new Ui(i18n, save, audio, input, {
-    play: () => startRun(!save.data.tutorialDone),
-    restart: () => startRun(false),
+    play: (level = save.data.lastLevel) => startRun(!save.data.tutorialDone, level),
+    restart: () => startRun(false, save.data.lastLevel),
     resume,
     quit: () => {
       game?.toTitle()
@@ -93,6 +95,15 @@ async function boot(): Promise<void> {
     hint: hint => ui.hint(hint),
     tutorialDone: () => save.update({ tutorialDone: true }),
     end: run => {
+      if (run.phase === 'won') {
+        const completedLevels = [...save.data.completedLevels]
+        completedLevels[run.levelIndex] = true
+        save.update({
+          completedLevels,
+          unlockedLevels: Math.min(4, Math.max(save.data.unlockedLevels, run.levelIndex + 2)),
+        })
+      }
+      void syncProgress(save.data)
       input.unlockPointer()
       window.setTimeout(() => ui.showResults(run), run.phase === 'won' ? 1400 : 900)
     },
@@ -121,6 +132,10 @@ async function boot(): Promise<void> {
     },
   })
   loop.start()
+  void syncProgress(save.data)
+  window.addEventListener('horizon:save-changed', () => { void syncProgress(save.data) })
+  window.addEventListener('online', () => { void syncProgress(save.data) })
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(() => undefined)
 
   document.addEventListener('pointerlockchange', () => {
     // Browsers release pointer lock on Escape without delivering the key: treat that as pause.

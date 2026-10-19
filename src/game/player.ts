@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { RAPIER, type Physics } from '../engine/physics'
 import { CONFIG } from './config'
 import { tuning } from './tuning'
@@ -54,6 +55,7 @@ export class Player {
     this.eyes = this.buildModel()
     this.model.rotation.order = 'YXZ'
     this.root.add(this.model)
+    this.loadGeneratedExplorer()
     physics.bind(this.body, this.root)
 
     this.shadow = new THREE.Mesh(
@@ -263,6 +265,30 @@ export class Player {
       this.model.add(m)
     }
     return eyeL
+  }
+
+  /** Load the approved low-poly explorer when present; the procedural astronaut remains the safe fallback. */
+  private loadGeneratedExplorer(): void {
+    if (typeof window === 'undefined') return
+    new GLTFLoader().load(`${import.meta.env.BASE_URL}assets/models/explorer.glb`, gltf => {
+      const imported = gltf.scene
+      const box = new THREE.Box3().setFromObject(imported)
+      const size = box.getSize(new THREE.Vector3())
+      const scale = size.y > 0 ? 1.8 / size.y : 1
+      imported.scale.setScalar(scale)
+      imported.position.y = -0.9 - box.min.y * scale
+      imported.traverse(child => {
+        const mesh = child as THREE.Mesh
+        if (mesh.isMesh) {
+          mesh.castShadow = true
+          mesh.receiveShadow = true
+        }
+      })
+      for (const child of this.model.children) child.visible = false
+      this.model.add(imported)
+    }, undefined, () => {
+      // Keep the procedural explorer when the model is not cached or the device is offline.
+    })
   }
 }
 

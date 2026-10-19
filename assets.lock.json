@@ -1,6 +1,37 @@
 {
   "version": 2,
-  "groups": {},
+  "groups": {
+    "models": {
+      "name": "Models",
+      "order": 10
+    },
+    "share": {
+      "name": "Share",
+      "order": 20
+    }
+  },
   "bundles": {},
-  "assets": {}
+  "assets": {
+    "assets/models/explorer.glb": {
+      "path": "/manus-storage/game/sha256/76c50fd17494a64cbf3eeca6637b78db793ad0ff492415b5a1e65500023e779d.glb",
+      "sha256": "sha256:76c50fd17494a64cbf3eeca6637b78db793ad0ff492415b5a1e65500023e779d",
+      "size": 2660324,
+      "assetType": "model",
+      "groupId": "models"
+    },
+    "assets/models/horizon-gate.glb": {
+      "path": "/manus-storage/game/sha256/5f7f4d131dba69795de4d40c5a1054efb71fc56b3e7a1d28ddc4b51b994dc099.glb",
+      "sha256": "sha256:5f7f4d131dba69795de4d40c5a1054efb71fc56b3e7a1d28ddc4b51b994dc099",
+      "size": 2540460,
+      "assetType": "model",
+      "groupId": "models"
+    },
+    "assets/share/favicon.png": {
+      "path": "/manus-storage/game/sha256/dd48dc9cb9dcbe575a00434588276a0b5d3da6c30e1dcb36a39fe6b2fdcaf7e3.png",
+      "sha256": "sha256:dd48dc9cb9dcbe575a00434588276a0b5d3da6c30e1dcb36a39fe6b2fdcaf7e3",
+      "size": 3381,
+      "assetType": "image",
+      "groupId": "share"
+    }
+  }
 }

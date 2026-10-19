@@ -1,0 +1,13 @@
+{
+  "name": "أسرار الأفق: رحلة المستكشف",
+  "short_name": "أسرار الأفق",
+  "description": "مغامرة ألغاز واستكشاف ثلاثية الأبعاد مستقبلية تعمل أوفلاين أولاً.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#050d18",
+  "theme_color": "#071525",
+  "orientation": "landscape"
+}

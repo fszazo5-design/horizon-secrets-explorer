@@ -8,6 +8,7 @@ export type RunPhase = 'playing' | 'won' | 'lost'
 export type LoseReason = 'time' | 'lives'
 
 export type RunState = {
+  levelIndex: number
   unranked: boolean
   phase: RunPhase
   loseReason?: LoseReason
@@ -25,8 +26,9 @@ export type RunState = {
   lifeBonus: number
 }
 
-export function createRun(totalCores: number, rules = CONFIG): RunState {
+export function createRun(totalCores: number, rules = CONFIG, levelIndex = 0): RunState {
   return {
+    levelIndex,
     unranked: false,
     phase: 'playing',
     score: 0,

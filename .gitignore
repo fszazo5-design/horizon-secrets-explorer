@@ -2,3 +2,7 @@ node_modules/
 dist/
 shots/
 /.manus-webdev/preview-identity.json
+# Assets restored from assets.lock.json
+/assets/models/explorer.glb
+/assets/models/horizon-gate.glb
+/assets/share/favicon.png
