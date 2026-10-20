@@ -40,8 +40,8 @@ export const DEFAULT_CONFIG = {
     turnSpeed: 14,
   },
   camera: {
-    distance: 6.4,
-    height: 2.4,
+    distance: 10.5,
+    height: 4.2,
     minPitch: -0.35,
     maxPitch: 1.1,
     follow: 10,

@@ -4,7 +4,7 @@ import type { Physics } from '../engine/physics'
 import { RAPIER } from '../engine/physics'
 
 /**
- * Procedural sky-islands level. Everything is built from primitives and a seeded RNG, so the
+ * Procedural fantasy-planet level. Everything is built from primitives and a seeded RNG, so the
  * starter ships no model files and the layout is identical on every load.
  *
  * To make a different level, edit ISLANDS / LINKS: stepping stones are generated automatically
@@ -45,22 +45,22 @@ const MAX_GAP = 2.3
 const MAX_RISE = 1.05
 
 export const PALETTE = {
-  skyTop: new THREE.Color('#071a3b'),
-  horizon: new THREE.Color('#102b48'),
-  grass: new THREE.Color('#1d7180'),
-  grassDark: new THREE.Color('#124754'),
-  rock: new THREE.Color('#273958'),
-  rockDark: new THREE.Color('#101c32'),
-  stone: new THREE.Color('#3f7690'),
-  leaf: [new THREE.Color('#3dbeaa'), new THREE.Color('#65d7c3'), new THREE.Color('#b58cf4')],
-  trunk: new THREE.Color('#34506a'),
-  crystal: new THREE.Color('#62e6ff'),
+  skyTop: new THREE.Color('#244b76'),
+  horizon: new THREE.Color('#e5a56f'),
+  grass: new THREE.Color('#5d9b58'),
+  grassDark: new THREE.Color('#376843'),
+  rock: new THREE.Color('#79543f'),
+  rockDark: new THREE.Color('#3d2d2a'),
+  stone: new THREE.Color('#b18a64'),
+  leaf: [new THREE.Color('#2d8a55'), new THREE.Color('#6ebc61'), new THREE.Color('#a7d96b')],
+  trunk: new THREE.Color('#704936'),
+  crystal: new THREE.Color('#8de8d0'),
 }
 const WORLD_THEMES = [
-  { top: '#071a3b', horizon: '#102b48', light: '#bdefff', intensity: 2.1 },
-  { top: '#160f3b', horizon: '#2e1e59', light: '#dec9ff', intensity: 1.9 },
-  { top: '#062d3b', horizon: '#124f62', light: '#b8fff0', intensity: 2.2 },
-  { top: '#321b16', horizon: '#5d3c2b', light: '#ffe4b0', intensity: 2.35 },
+  { top: '#244b76', horizon: '#e5a56f', light: '#ffe0a3', intensity: 2.1 },
+  { top: '#49356e', horizon: '#d8838c', light: '#ffd18b', intensity: 1.9 },
+  { top: '#1d5b63', horizon: '#79c3a7', light: '#fff1b0', intensity: 2.2 },
+  { top: '#6b3b2c', horizon: '#f0b46e', light: '#fff0b5', intensity: 2.35 },
 ]
 
 /** Mulberry32: tiny deterministic RNG so the level never changes between loads. */
@@ -118,6 +118,7 @@ export class World {
   readonly droneRoutes: DroneRoute[] = []
   readonly movers: MovingPlatform[] = []
   private clouds: THREE.Object3D[] = []
+  private celestial: THREE.Object3D[] = []
   private sky?: THREE.Mesh
 
   constructor(private readonly physics: Physics, shadowMapSize: number) {
@@ -148,6 +149,8 @@ export class World {
       else this.addMover(a, b, link.a * 7 + link.b)
     }
     this.addClouds(random)
+    this.addPlanetSurface(random)
+    this.addCelestialBodies()
     this.addDistantIslands(random)
     this.addHorizonGate()
 
@@ -183,6 +186,7 @@ export class World {
     }
     this.sun.position.set(focus.x + 18, focus.y + 34, focus.z + 12)
     this.sun.target.position.copy(focus)
+    for (const body of this.celestial) body.rotation.y += dt * (body.userData.orbitSpeed as number)
   }
 
   /** Advance moving platforms by one fixed step and record their movement. */
@@ -303,6 +307,9 @@ export class World {
         const dist = isl.r * (0.68 + random() * 0.2)
         this.addTree(isl.x + Math.cos(angle) * dist, isl.top, isl.z + Math.sin(angle) * dist, 0.6 + random() * 0.4, random)
       }
+      const houseAngle = index * 1.9 + 0.6
+      const houseDist = Math.max(1.2, isl.r * 0.38)
+      this.addHouse(isl.x + Math.cos(houseAngle) * houseDist, isl.top + 0.02, isl.z + Math.sin(houseAngle) * houseDist, 0.42, index % 2 === 0)
     }
     for (let k = 0; k < 3; k += 1) {
       const angle = random() * Math.PI * 2
@@ -394,6 +401,59 @@ export class World {
     }
   }
 
+  /** A readable planetary horizon: soil, village lights and architecture replace empty space. */
+  private addPlanetSurface(random: () => number): void {
+    const ground = new THREE.Mesh(new THREE.CylinderGeometry(170, 185, 2.4, 48), flat(new THREE.Color('#6b8f4d')))
+    ground.position.y = -7.2
+    ground.receiveShadow = true
+    this.scene.add(ground)
+    for (let i = 0; i < 18; i += 1) {
+      const angle = random() * Math.PI * 2
+      const distance = 24 + random() * 55
+      this.addHouse(Math.cos(angle) * distance, -5.85 + random() * 0.12, Math.sin(angle) * distance, 0.75 + random() * 0.55, random() > 0.5)
+    }
+  }
+
+  private addHouse(x: number, y: number, z: number, scale: number, warmRoof: boolean): void {
+    const house = new THREE.Group()
+    house.position.set(x, y, z)
+    house.scale.setScalar(scale)
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.7, 2), flat(new THREE.Color('#e2c58d')))
+    wall.position.y = 0.85
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(1.8, 1.25, 4), flat(new THREE.Color(warmRoof ? '#bd6844' : '#4f7181')))
+    roof.position.y = 2.3
+    roof.rotation.y = Math.PI / 4
+    const door = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.8, 0.04), flat(new THREE.Color('#56382d')))
+    door.position.set(0, 0.42, -1.02)
+    const window = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.38, 0.04), glow(new THREE.Color('#ffe39a'), 0.8))
+    window.position.set(0.7, 1.05, -1.03)
+    house.add(wall, roof, door, window)
+    house.traverse(child => { if ((child as THREE.Mesh).isMesh) (child as THREE.Mesh).castShadow = true })
+    this.scene.add(house)
+  }
+
+  /** Two suns and two moons define the fantasy world's day/night silhouette. */
+  private addCelestialBodies(): void {
+    const sky = new THREE.Group()
+    const sunA = new THREE.Mesh(new THREE.SphereGeometry(4.2, 24, 16), glow(new THREE.Color('#ffd36b'), 2.8))
+    const sunB = new THREE.Mesh(new THREE.SphereGeometry(2.6, 20, 14), glow(new THREE.Color('#ff9a68'), 2.2))
+    sunA.position.set(-42, 42, -95)
+    sunB.position.set(34, 27, -105)
+    const moonA = new THREE.Mesh(new THREE.SphereGeometry(2.1, 20, 14), glow(new THREE.Color('#d9f1ff'), 0.7))
+    const moonB = new THREE.Mesh(new THREE.SphereGeometry(1.35, 18, 12), glow(new THREE.Color('#c4d4ff'), 0.55))
+    moonA.position.set(54, 32, -80)
+    moonB.position.set(-62, 20, -72)
+    sky.add(sunA, sunB, moonA, moonB)
+    sky.userData.orbitSpeed = 0.012
+    this.celestial.push(sky)
+    this.scene.add(sky)
+    const warm = new THREE.PointLight('#ffd47a', 2.5, 130, 1.4)
+    warm.position.set(-40, 38, -90)
+    const rose = new THREE.PointLight('#ffad7b', 1.4, 100, 1.6)
+    rose.position.set(34, 25, -100)
+    this.scene.add(warm, rose)
+  }
+
   private addDistantIslands(random: () => number): void {
     for (let i = 0; i < 9; i += 1) {
       const angle = (i / 9) * Math.PI * 2 + random() * 0.4
@@ -407,7 +467,8 @@ export class World {
       rock.rotation.x = Math.PI
       rock.position.y = -r * 1.1 - 0.6
       g.add(top, rock)
-      g.position.set(Math.cos(angle) * dist, -6 + random() * 22, Math.sin(angle) * dist)
+      // These are grounded horizon hills, not floating islands.
+      g.position.set(Math.cos(angle) * dist, -5.7 + random() * 0.35, Math.sin(angle) * dist)
       this.scene.add(g)
     }
   }

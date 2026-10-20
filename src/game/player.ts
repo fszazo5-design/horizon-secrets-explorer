@@ -54,12 +54,15 @@ export class Player {
     this.root.position.copy(spawn)
     this.eyes = this.buildModel()
     this.model.rotation.order = 'YXZ'
+    // The explorer is intentionally a prominent hero on the new planet surface.
+    // Keep the gameplay capsule unchanged so the existing level tuning remains fair.
+    this.model.scale.setScalar(4)
     this.root.add(this.model)
     this.loadGeneratedExplorer()
     physics.bind(this.body, this.root)
 
     this.shadow = new THREE.Mesh(
-      new THREE.CircleGeometry(P.radius * 1.25, 24),
+      new THREE.CircleGeometry(P.radius * 1.25 * 4, 24),
       new THREE.MeshBasicMaterial({ color: '#1d1a2a', transparent: true, opacity: 0.35, depthWrite: false }),
     )
     this.shadow.rotation.x = -Math.PI / 2
