@@ -28,6 +28,7 @@ class HorizonGame(
     private lateinit var explorer: ModelInstance
     private val objects = mutableListOf<ModelInstance>()
     private val cores = mutableListOf<Core>()
+    private val celestial = mutableListOf<ModelInstance>()
     private val position = Vector3(0f, 1.25f, 5f)
     private var velocityY = 0f
     private var level = 0
@@ -62,10 +63,17 @@ class HorizonGame(
         velocityY = 0f
         objects.clear()
         cores.clear()
+        celestial.clear()
         val builder = ModelBuilder()
         val accent = colors[level]
-        val platformMaterial = Material(ColorAttribute.createDiffuse(Color(0.035f, 0.16f, 0.23f, 1f)))
+        val platformMaterial = Material(ColorAttribute.createDiffuse(Color(0.36f, 0.58f, 0.28f, 1f)))
+        val soilMaterial = Material(ColorAttribute.createDiffuse(Color(0.38f, 0.24f, 0.16f, 1f)))
+        val wallMaterial = Material(ColorAttribute.createDiffuse(Color(0.82f, 0.67f, 0.43f, 1f)))
+        val roofMaterial = Material(ColorAttribute.createDiffuse(Color(0.62f, 0.22f, 0.14f, 1f)))
         val edgeMaterial = Material(ColorAttribute.createDiffuse(accent))
+        val ground = ModelInstance(builder.createBox(150f, 1.2f, 150f, soilMaterial, 1L or 8L))
+        ground.transform.setToTranslation(0f, -5.8f, 0f)
+        objects += ground
         for (i in 0..9) {
             val angle = i * 0.63f
             val radius = 5.5f + (i % 3) * 2.2f
@@ -82,11 +90,34 @@ class HorizonGame(
                 cores += Core(core, corePosition)
             }
         }
+        // Grounded fantasy villages surround the route instead of empty space.
+        for (i in 0..11) {
+            val angle = i * 0.52f
+            val distance = 25f + (i % 4) * 5f
+            val x = cos(angle) * distance
+            val z = sin(angle) * distance
+            val house = ModelInstance(builder.createBox(2.4f, 1.8f, 2f, wallMaterial, 1L or 8L))
+            house.transform.setToTranslation(x, -4.25f, z)
+            objects += house
+            val roof = ModelInstance(builder.createCone(3f, 1.35f, 2.6f, 4, roofMaterial, 1L or 8L))
+            roof.transform.setToTranslation(x, -2.7f, z)
+            objects += roof
+        }
+        val sunA = ModelInstance(builder.createSphere(7f, 7f, 7f, 18, 18, Material(ColorAttribute.createDiffuse(Color(1f, 0.72f, 0.28f, 1f))), 1L or 8L))
+        sunA.transform.setToTranslation(-42f, 40f, -90f)
+        val sunB = ModelInstance(builder.createSphere(4.5f, 4.5f, 4.5f, 16, 16, Material(ColorAttribute.createDiffuse(Color(1f, 0.42f, 0.25f, 1f))), 1L or 8L))
+        sunB.transform.setToTranslation(34f, 28f, -100f)
+        val moonA = ModelInstance(builder.createSphere(3.5f, 3.5f, 3.5f, 16, 16, Material(ColorAttribute.createDiffuse(Color(0.78f, 0.9f, 1f, 1f))), 1L or 8L))
+        moonA.transform.setToTranslation(54f, 32f, -80f)
+        val moonB = ModelInstance(builder.createSphere(2.3f, 2.3f, 2.3f, 14, 14, Material(ColorAttribute.createDiffuse(Color(0.58f, 0.7f, 0.95f, 1f))), 1L or 8L))
+        moonB.transform.setToTranslation(-62f, 22f, -72f)
+        celestial += sunA; celestial += sunB; celestial += moonA; celestial += moonB
+        objects += celestial
         val gate = ModelInstance(builder.createCylinder(3.2f, 0.45f, 0.45f, 32, edgeMaterial, 1L or 8L))
         gate.transform.setToTranslation(0f, 2.4f, -12f)
         objects += gate
-        explorer = ModelInstance(builder.createBox(0.75f, 1.7f, 0.55f, Material(ColorAttribute.createDiffuse(Color(0.20f, 0.16f, 0.52f, 1f))), 1L or 8L))
-        explorer.transform.setToTranslation(position)
+        explorer = ModelInstance(builder.createBox(3f, 6.8f, 2.2f, Material(ColorAttribute.createDiffuse(Color(0.20f, 0.16f, 0.52f, 1f))), 1L or 8L))
+        explorer.transform.setToTranslation(position.x, position.y + 2.55f, position.z)
         objects += explorer
     }
 
@@ -102,7 +133,8 @@ class HorizonGame(
         position.y = (position.y + velocityY * dt).coerceAtLeast(1.25f).also { if (it <= 1.25f) velocityY = 0f }
         position.x = position.x.coerceIn(-22f, 22f)
         position.z = position.z.coerceIn(-24f, 18f)
-        explorer.transform.setToTranslation(position)
+        explorer.transform.setToTranslation(position.x, position.y + 2.55f, position.z)
+        celestial.forEachIndexed { index, body -> body.transform.rotate(Vector3.Y, (if (index < 2) 0.012f else -0.006f) * dt) }
         for (core in cores) {
             if (!core.collected && position.dst(core.position) < 1.65f) {
                 core.collected = true
@@ -116,7 +148,7 @@ class HorizonGame(
             score += remainingTime.toInt() * 3
             onLevelCompleted(level, score)
         }
-        camera.position.set(position.x + 8f, position.y + 7f, position.z + 10f)
+        camera.position.set(position.x + 13f, position.y + 10f, position.z + 16f)
         camera.lookAt(position.x, position.y + 0.4f, position.z)
         camera.up.set(Vector3.Y)
         camera.update()
