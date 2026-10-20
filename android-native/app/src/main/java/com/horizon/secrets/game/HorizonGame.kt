@@ -195,8 +195,8 @@ class HorizonGame(
     private fun setPlayerAnimation(name: String) {
         val scene = playerScene ?: return
         if (currentAnimation == name) return
-        val animation = scene.modelInstance.animations.firstOrNull { it.id.equals(name, ignoreCase = true) } ?: return
-        scene.animationController?.setAnimation(animation, -1)
+        if (scene.modelInstance.animations.none { it.id.equals(name, ignoreCase = true) }) return
+        scene.animationController?.setAnimation(name, -1)
         currentAnimation = name
     }
 
