@@ -15,8 +15,14 @@ import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder
 import com.badlogic.gdx.math.Vector3
 import com.horizon.secrets.domain.HudState
+import net.mgsx.gltf.loaders.glb.GLBLoader
+import net.mgsx.gltf.scene3d.scene.Scene
+import net.mgsx.gltf.scene3d.scene.SceneAsset
+import net.mgsx.gltf.scene3d.scene.SceneManager
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 class HorizonGame(
     private val touch: TouchState,
@@ -26,12 +32,16 @@ class HorizonGame(
     private lateinit var batch: ModelBatch
     private lateinit var environment: Environment
     private lateinit var camera: PerspectiveCamera
+    private lateinit var sceneManager: SceneManager
     private val objects = mutableListOf<ModelInstance>()
     private val cores = mutableListOf<Core>()
     private val worldModels = mutableListOf<Model>()
-    private val heroModels = mutableListOf<HeroModels>()
-    private var playerRig: PlayerRig? = null
+    private val glbLoader = GLBLoader()
+    private var heroAsset: SceneAsset? = null
+    private var playerScene: Scene? = null
     private var selectedCharacter = 0
+    private var currentAnimation: String? = null
+    private var facingAngle = 0f
     private val position = Vector3(0f, 1.25f, 5f)
     private var velocityY = 0f
     private var level = 0
@@ -39,41 +49,15 @@ class HorizonGame(
     private var elapsed = 0f
     private var remainingTime = 145f
     private var levelCompleteSent = false
+    private val heroFiles = listOf("harper", "sam", "maya")
     private val colors = listOf(
         Color(0.10f, 0.62f, 0.72f, 1f),
         Color(0.42f, 0.28f, 0.72f, 1f),
         Color(0.10f, 0.72f, 0.50f, 1f),
         Color(0.86f, 0.45f, 0.20f, 1f),
     )
-    private val characterStyles = listOf(
-        CharacterStyle(Color(0.12f, 0.42f, 0.66f, 1f), Color(0.10f, 0.84f, 1f, 1f), Color(0.98f, 0.78f, 0.38f, 1f), 0),
-        CharacterStyle(Color(0.32f, 0.22f, 0.62f, 1f), Color(0.72f, 0.48f, 1f, 1f), Color(0.96f, 0.78f, 0.42f, 1f), 1),
-        CharacterStyle(Color(0.62f, 0.32f, 0.16f, 1f), Color(1f, 0.62f, 0.20f, 1f), Color(0.96f, 0.82f, 0.58f, 1f), 2),
-        CharacterStyle(Color(0.12f, 0.48f, 0.40f, 1f), Color(0.32f, 1f, 0.78f, 1f), Color(0.82f, 0.94f, 0.90f, 1f), 3),
-    )
 
     private data class Core(val instance: ModelInstance, val position: Vector3, var collected: Boolean = false)
-    private data class CharacterStyle(val body: Color, val accent: Color, val face: Color, val accessory: Int)
-    private data class HeroModels(
-        val torso: Model,
-        val head: Model,
-        val arm: Model,
-        val leg: Model,
-        val accessory: Model,
-        val visor: Model,
-        val accessoryY: Float,
-        val accessoryZ: Float,
-    )
-    private data class PlayerRig(
-        val torso: ModelInstance,
-        val head: ModelInstance,
-        val leftArm: ModelInstance,
-        val rightArm: ModelInstance,
-        val leftLeg: ModelInstance,
-        val rightLeg: ModelInstance,
-        val accessory: ModelInstance,
-        val visor: ModelInstance,
-    )
 
     override fun create() {
         batch = ModelBatch()
@@ -81,30 +65,34 @@ class HorizonGame(
             set(ColorAttribute(ColorAttribute.AmbientLight, 0.55f, 0.62f, 0.78f, 1f))
             add(DirectionalLight().set(0.9f, 0.85f, 0.72f, -0.5f, -1f, -0.35f))
         }
+        sceneManager = SceneManager(24).apply {
+            setAmbientLight(0.78f)
+            environment.add(DirectionalLight().set(0.85f, 0.82f, 0.76f, -0.45f, -1f, -0.35f))
+        }
         camera = PerspectiveCamera(67f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat()).apply {
             near = 0.1f
             far = 180f
         }
-        createHeroModels()
+        sceneManager.setCamera(camera)
         startLevel(0)
         selectCharacter(0)
     }
 
     /** Must be called on LibGDX's render thread. */
     fun selectCharacter(index: Int) {
-        if (heroModels.isEmpty()) return
-        selectedCharacter = index.coerceIn(0, heroModels.lastIndex)
-        val models = heroModels[selectedCharacter]
-        playerRig = PlayerRig(
-            torso = ModelInstance(models.torso),
-            head = ModelInstance(models.head),
-            leftArm = ModelInstance(models.arm),
-            rightArm = ModelInstance(models.arm),
-            leftLeg = ModelInstance(models.leg),
-            rightLeg = ModelInstance(models.leg),
-            accessory = ModelInstance(models.accessory),
-            visor = ModelInstance(models.visor),
-        )
+        val nextCharacter = index.coerceIn(0, heroFiles.lastIndex)
+        if (nextCharacter == selectedCharacter && playerScene != null) return
+        playerScene?.let { previous ->
+            previous.animations.stopAll()
+            sceneManager.removeScene(previous)
+        }
+        heroAsset?.dispose()
+        selectedCharacter = nextCharacter
+        heroAsset = glbLoader.load(Gdx.files.internal("characters/${heroFiles[selectedCharacter]}.glb"))
+        playerScene = Scene(heroAsset!!.scene).also { sceneManager.addScene(it, false) }
+        currentAnimation = null
+        setPlayerAnimation("Idle_Standing")
+        updatePlayerTransform()
     }
 
     fun startLevel(index: Int) {
@@ -204,41 +192,34 @@ class HorizonGame(
         }
     }
 
-    private fun createHeroModels() {
-        val builder = ModelBuilder()
-        val attributes = 1L or 8L
-        characterStyles.forEach { style ->
-            val bodyMaterial = Material(ColorAttribute.createDiffuse(style.body))
-            val accentMaterial = Material(ColorAttribute.createDiffuse(style.accent))
-            val faceMaterial = Material(ColorAttribute.createDiffuse(style.face))
-            val darkMaterial = Material(ColorAttribute.createDiffuse(Color(0.055f, 0.10f, 0.17f, 1f)))
-            val torso = when (style.accessory) {
-                1 -> builder.createBox(0.78f, 0.82f, 0.46f, bodyMaterial, attributes)
-                2 -> builder.createCylinder(0.54f, 0.86f, 0.42f, 10, bodyMaterial, attributes)
-                3 -> builder.createBox(0.60f, 0.88f, 0.40f, bodyMaterial, attributes)
-                else -> builder.createBox(0.68f, 0.82f, 0.42f, bodyMaterial, attributes)
-            }
-            heroModels += HeroModels(
-                torso = ownHero(torso),
-                head = ownHero(builder.createSphere(0.64f, 0.64f, 0.64f, 12, 12, faceMaterial, attributes)),
-                arm = ownHero(builder.createCylinder(0.22f, 0.72f, 0.22f, 8, accentMaterial, attributes)),
-                leg = ownHero(builder.createBox(0.27f, 0.62f, 0.30f, darkMaterial, attributes)),
-                accessory = ownHero(when (style.accessory) {
-                    0 -> builder.createBox(0.82f, 0.96f, 0.14f, accentMaterial, attributes) // explorer's short energy cape
-                    1 -> builder.createBox(1.02f, 0.36f, 0.56f, accentMaterial, attributes) // orbit guard shoulder armor
-                    2 -> builder.createCone(0.86f, 0.62f, 0.86f, 8, accentMaterial, attributes) // desert wanderer hood
-                    else -> builder.createCone(0.42f, 0.72f, 0.42f, 6, accentMaterial, attributes) // crystal crest
-                }),
-                visor = ownHero(builder.createBox(0.38f, 0.13f, 0.07f, accentMaterial, attributes)),
-                accessoryY = if (style.accessory == 3) 1.20f else if (style.accessory == 2) 0.92f else if (style.accessory == 1) 0.34f else 0.02f,
-                accessoryZ = if (style.accessory == 0) -0.31f else 0f,
-            )
+    private fun setPlayerAnimation(name: String) {
+        val scene = playerScene ?: return
+        if (currentAnimation == name) return
+        val animation = scene.modelInstance.animations.firstOrNull { it.id.equals(name, ignoreCase = true) } ?: return
+        scene.animationController?.setAnimation(animation, -1)
+        currentAnimation = name
+    }
+
+    private fun updatePlayerTransform() {
+        val scene = playerScene ?: return
+        scene.modelInstance.transform.idt()
+            .translate(position.x, position.y - 0.82f, position.z)
+            .rotate(Vector3.Y, facingAngle)
+    }
+
+    private fun updatePlayerAnimation() {
+        val movement = sqrt(touch.moveX * touch.moveX + touch.moveY * touch.moveY)
+        val animation = when {
+            movement < 0.08f -> "Idle_Standing"
+            movement < 0.65f -> "Walk_Relaxed"
+            else -> "Run"
         }
+        setPlayerAnimation(animation)
+        if (movement >= 0.08f) facingAngle = atan2(touch.moveX, -touch.moveY) * 57.29578f
+        updatePlayerTransform()
     }
 
     private fun ownWorld(model: Model): Model = model.also(worldModels::add)
-    private fun ownHero(model: Model): Model = model.also { heroModelsOwned += it }
-    private val heroModelsOwned = mutableListOf<Model>()
 
     private fun clearWorld() {
         objects.clear()
@@ -263,26 +244,8 @@ class HorizonGame(
         return instance
     }
 
-    private fun place(instance: ModelInstance, x: Float, y: Float, z: Float, rotationZ: Float = 0f) {
-        instance.transform.setToTranslation(x, y, z)
-        if (rotationZ != 0f) instance.transform.rotate(Vector3.Z, rotationZ)
-    }
-
-    private fun updatePlayerRig() {
-        val rig = playerRig ?: return
-        val moving = kotlin.math.abs(touch.moveX) + kotlin.math.abs(touch.moveY) > 0.08f
-        val swing = if (moving) sin(elapsed * 9f) * 22f else sin(elapsed * 2f) * 3f
-        val bob = if (moving) kotlin.math.abs(sin(elapsed * 9f)) * 0.035f else 0f
-        val y = position.y + bob
-        place(rig.torso, position.x, y + 0.06f, position.z)
-        place(rig.head, position.x, y + 0.79f, position.z)
-        place(rig.leftArm, position.x - 0.48f, y + 0.10f, position.z, 34f + swing)
-        place(rig.rightArm, position.x + 0.48f, y + 0.10f, position.z, -34f - swing)
-        place(rig.leftLeg, position.x - 0.18f, y - 0.49f, position.z, -swing * 0.55f)
-        place(rig.rightLeg, position.x + 0.18f, y - 0.49f, position.z, swing * 0.55f)
-        val hero = heroModels[selectedCharacter]
-        place(rig.accessory, position.x, y + hero.accessoryY, position.z + hero.accessoryZ)
-        place(rig.visor, position.x, y + 0.81f, position.z + 0.33f)
+    private fun updatePlayer() {
+        updatePlayerAnimation()
     }
 
     override fun render() {
@@ -297,7 +260,7 @@ class HorizonGame(
         position.y = (position.y + velocityY * dt).coerceAtLeast(1.25f).also { if (it <= 1.25f) velocityY = 0f }
         position.x = position.x.coerceIn(-22f, 22f)
         position.z = position.z.coerceIn(-24f, 18f)
-        updatePlayerRig()
+        updatePlayer()
 
         for (core in cores) {
             if (!core.collected && position.dst(core.position) < 1.65f) {
@@ -316,36 +279,29 @@ class HorizonGame(
         camera.lookAt(position.x, position.y + 0.4f, position.z)
         camera.up.set(Vector3.Y)
         camera.update()
+        sceneManager.update(dt)
         onHud(HudState(level, collected, cores.size, score, remainingTime.toInt(), if (collected == cores.size) "عاد النور إلى المدار" else "وازن خطواتك واتبع شظايا النور"))
         Gdx.gl.glClearColor(0.02f, 0.05f, 0.11f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT or GL20.GL_DEPTH_BUFFER_BIT)
         batch.begin(camera)
         objects.forEach { batch.render(it, environment) }
-        playerRig?.let { rig ->
-            batch.render(rig.accessory, environment)
-            batch.render(rig.leftLeg, environment)
-            batch.render(rig.rightLeg, environment)
-            batch.render(rig.torso, environment)
-            batch.render(rig.leftArm, environment)
-            batch.render(rig.rightArm, environment)
-            batch.render(rig.head, environment)
-            batch.render(rig.visor, environment)
-        }
         cores.filterNot { it.collected }.forEach { batch.render(it.instance, environment) }
         batch.end()
+        sceneManager.renderColors()
     }
 
     override fun resize(width: Int, height: Int) {
-        camera.viewportWidth = width.toFloat()
-        camera.viewportHeight = height.toFloat()
-        camera.update()
+        sceneManager.updateViewport(width.toFloat(), height.toFloat())
     }
 
     override fun dispose() {
         batch.dispose()
         clearWorld()
-        heroModelsOwned.forEach { it.dispose() }
-        heroModelsOwned.clear()
-        heroModels.clear()
+        playerScene?.animations?.stopAll()
+        playerScene?.let(sceneManager::removeScene)
+        sceneManager.dispose()
+        heroAsset?.dispose()
+        heroAsset = null
+        playerScene = null
     }
 }

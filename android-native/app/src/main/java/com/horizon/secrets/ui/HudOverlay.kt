@@ -1,6 +1,8 @@
 package com.horizon.secrets.ui
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -29,14 +31,19 @@ class HudOverlay(
     private var ignoreMapOpenPointer = -1
     private var joystickCenterX = 0f
     private var joystickCenterY = 0f
-    private val characterNames = listOf("رائد النور", "حارس المدار", "رحّالة الرمال", "حارسة البلور")
-    private val characterRoles = listOf("عباءة الطاقة", "درع بنفسجي", "خوذة الرمال", "تاج البلور")
+    private val characterNames = listOf("هاربر", "سام", "مايا")
+    private val characterRoles = listOf("بدلة رسمية · 7 حركات", "ملابس يومية · 7 حركات", "ملابس رياضية · 7 حركات")
     private val characterColors = listOf(
-        Color.rgb(42, 184, 245),
-        Color.rgb(170, 112, 255),
-        Color.rgb(250, 158, 54),
-        Color.rgb(77, 231, 184),
+        Color.rgb(98, 230, 255),
+        Color.rgb(114, 204, 170),
+        Color.rgb(227, 123, 213),
     )
+    private val characterPortraits: List<Bitmap?> by lazy {
+        characterNames.indices.map { index ->
+            val assetName = listOf("harper", "sam", "maya")[index]
+            runCatching { context.assets.open("characters/portrait_$assetName.png").use { stream -> BitmapFactory.decodeStream(stream) } }.getOrNull()
+        }
+    }
 
     init {
         isClickable = true
@@ -145,14 +152,14 @@ class HudOverlay(
         canvas.drawText("اختر شخصيتك", width - 54f, 88f, paint)
         paint.color = Color.rgb(255, 200, 107)
         paint.textSize = 17f
-        canvas.drawText("أربع شخصيات ثلاثية الأبعاد قابلة للعب", width - 54f, 119f, paint)
+        canvas.drawText("ثلاث شخصيات بشرية ثلاثية الأبعاد ومتحركة", width - 54f, 119f, paint)
 
         val cardWidth = (width - 134f) / 2f
         val cardHeight = 108f
         for (i in characterNames.indices) {
             val row = i / 2
             val col = i % 2
-            val left = 54f + col * (cardWidth + 24f)
+            val left = if (i == 2) (width - cardWidth) / 2f else 54f + col * (cardWidth + 24f)
             val top = 146f + row * 124f
             val right = left + cardWidth
             paint.color = if (i == selectedCharacter) Color.argb(235, 27, 69, 92) else Color.argb(210, 15, 39, 61)
@@ -163,12 +170,7 @@ class HudOverlay(
             canvas.drawRoundRect(RectF(left + 1f, top + 1f, right - 1f, top + cardHeight - 1f), 12f, 12f, paint)
             paint.style = Paint.Style.FILL
 
-            // Compact silhouette preview; the selected hero is rendered in the 3D world.
-            paint.color = characterColors[i]
-            canvas.drawCircle(left + 42f, top + 35f, 15f, paint)
-            canvas.drawRoundRect(RectF(left + 27f, top + 52f, left + 57f, top + 91f), 8f, 8f, paint)
-            paint.color = Color.rgb(12, 24, 38)
-            canvas.drawRoundRect(RectF(left + 32f, top + 31f, left + 52f, top + 36f), 2f, 2f, paint)
+            drawCharacterPortrait(canvas, i, left, top, cardHeight)
 
             paint.textAlign = Paint.Align.RIGHT
             paint.color = Color.WHITE
@@ -246,19 +248,30 @@ class HudOverlay(
         return dx * dx + dy * dy <= r * r
     }
 
+    private fun drawCharacterPortrait(canvas: Canvas, index: Int, left: Float, top: Float, cardHeight: Float) {
+        val bitmap = characterPortraits.getOrNull(index) ?: return
+        val maxWidth = 52f
+        val maxHeight = cardHeight - 10f
+        val scale = minOf(maxWidth / bitmap.width, maxHeight / bitmap.height)
+        val targetWidth = bitmap.width * scale
+        val targetHeight = bitmap.height * scale
+        val bounds = RectF(left + 7f, top + (cardHeight - targetHeight) / 2f, left + 7f + targetWidth, top + (cardHeight + targetHeight) / 2f)
+        paint.isFilterBitmap = true
+        paint.alpha = 255
+        canvas.drawBitmap(bitmap, null, bounds, paint)
+    }
+
     private fun characterAt(x: Float, y: Float): Int? {
         val cardWidth = (width - 134f) / 2f
-        val row = when {
-            y in 146f..254f -> 0
-            y in 270f..378f -> 1
-            else -> return null
+        val cardHeight = 108f
+        for (i in characterNames.indices) {
+            val row = i / 2
+            val col = i % 2
+            val left = if (i == 2) (width - cardWidth) / 2f else 54f + col * (cardWidth + 24f)
+            val top = 146f + row * 124f
+            if (x in left..(left + cardWidth) && y in top..(top + cardHeight)) return i
         }
-        val col = when {
-            x in 54f..(54f + cardWidth) -> 0
-            x in (78f + cardWidth)..(78f + cardWidth * 2f) -> 1
-            else -> return null
-        }
-        return row * 2 + col
+        return null
     }
 
     private fun levelAt(x: Float, y: Float): Int? {

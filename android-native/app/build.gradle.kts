@@ -61,6 +61,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("com.badlogicgames.gdx:gdx:1.13.5")
     implementation("com.badlogicgames.gdx:gdx-backend-android:1.13.5")
+    implementation("com.github.mgsx-dev.gdx-gltf:gltf:2.3.0") {
+        exclude(group = "com.badlogicgames.gdx", module = "gdx")
+    }
     add(gdxNatives.name, "com.badlogicgames.gdx:gdx-platform:1.13.5:natives-armeabi-v7a")
     add(gdxNatives.name, "com.badlogicgames.gdx:gdx-platform:1.13.5:natives-arm64-v8a")
     add(gdxNatives.name, "com.badlogicgames.gdx:gdx-platform:1.13.5:natives-x86")
