@@ -90,29 +90,35 @@ class HorizonGame(
                 cores += Core(core, corePosition)
             }
         }
-        // Grounded fantasy villages surround the route instead of empty space.
-        for (i in 0..11) {
-            val angle = i * 0.52f
-            val distance = 25f + (i % 4) * 5f
-            val x = cos(angle) * distance
-            val z = sin(angle) * distance
-            val house = ModelInstance(builder.createBox(2.4f, 1.8f, 2f, wallMaterial, 1L or 8L))
-            house.transform.setToTranslation(x, -4.25f, z)
-            objects += house
-            val roof = ModelInstance(builder.createCone(3f, 1.35f, 2.6f, 4, roofMaterial, 1L or 8L))
-            roof.transform.setToTranslation(x, -2.7f, z)
-            objects += roof
+        // Decorative planet elements are optional: gameplay still starts if a device has a
+        // fragile renderer or runs out of GPU memory while creating the extra scenery.
+        try {
+            for (i in 0..11) {
+                val angle = i * 0.52f
+                val distance = 25f + (i % 4) * 5f
+                val x = cos(angle) * distance
+                val z = sin(angle) * distance
+                val house = ModelInstance(builder.createBox(2.4f, 1.8f, 2f, wallMaterial, 1L or 8L))
+                house.transform.setToTranslation(x, -4.25f, z)
+                objects += house
+                // A box roof is intentionally used for broad device compatibility.
+                val roof = ModelInstance(builder.createBox(3f, 1.35f, 2.6f, roofMaterial, 1L or 8L))
+                roof.transform.setToTranslation(x, -2.7f, z)
+                objects += roof
+            }
+            val sunA = ModelInstance(builder.createSphere(6f, 6f, 6f, 12, 12, Material(ColorAttribute.createDiffuse(Color(1f, 0.72f, 0.28f, 1f))), 1L or 8L))
+            sunA.transform.setToTranslation(-42f, 40f, -90f)
+            val sunB = ModelInstance(builder.createSphere(4f, 4f, 4f, 12, 12, Material(ColorAttribute.createDiffuse(Color(1f, 0.42f, 0.25f, 1f))), 1L or 8L))
+            sunB.transform.setToTranslation(34f, 28f, -100f)
+            val moonA = ModelInstance(builder.createSphere(3f, 3f, 3f, 12, 12, Material(ColorAttribute.createDiffuse(Color(0.78f, 0.9f, 1f, 1f))), 1L or 8L))
+            moonA.transform.setToTranslation(54f, 32f, -80f)
+            val moonB = ModelInstance(builder.createSphere(2f, 2f, 2f, 12, 12, Material(ColorAttribute.createDiffuse(Color(0.58f, 0.7f, 0.95f, 1f))), 1L or 8L))
+            moonB.transform.setToTranslation(-62f, 22f, -72f)
+            celestial += sunA; celestial += sunB; celestial += moonA; celestial += moonB
+            objects.addAll(celestial)
+        } catch (_: Throwable) {
+            celestial.clear()
         }
-        val sunA = ModelInstance(builder.createSphere(7f, 7f, 7f, 18, 18, Material(ColorAttribute.createDiffuse(Color(1f, 0.72f, 0.28f, 1f))), 1L or 8L))
-        sunA.transform.setToTranslation(-42f, 40f, -90f)
-        val sunB = ModelInstance(builder.createSphere(4.5f, 4.5f, 4.5f, 16, 16, Material(ColorAttribute.createDiffuse(Color(1f, 0.42f, 0.25f, 1f))), 1L or 8L))
-        sunB.transform.setToTranslation(34f, 28f, -100f)
-        val moonA = ModelInstance(builder.createSphere(3.5f, 3.5f, 3.5f, 16, 16, Material(ColorAttribute.createDiffuse(Color(0.78f, 0.9f, 1f, 1f))), 1L or 8L))
-        moonA.transform.setToTranslation(54f, 32f, -80f)
-        val moonB = ModelInstance(builder.createSphere(2.3f, 2.3f, 2.3f, 14, 14, Material(ColorAttribute.createDiffuse(Color(0.58f, 0.7f, 0.95f, 1f))), 1L or 8L))
-        moonB.transform.setToTranslation(-62f, 22f, -72f)
-        celestial += sunA; celestial += sunB; celestial += moonA; celestial += moonB
-        objects += celestial
         val gate = ModelInstance(builder.createCylinder(3.2f, 0.45f, 0.45f, 32, edgeMaterial, 1L or 8L))
         gate.transform.setToTranslation(0f, 2.4f, -12f)
         objects += gate
