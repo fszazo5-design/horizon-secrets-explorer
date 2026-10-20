@@ -66,6 +66,6 @@ class MainActivity : AndroidApplication() {
         }
     }
 
-    override fun onPause() { super.onPause(); touch.clearMove() }
+    override fun onPause() { super.onPause(); if (::hud.isInitialized) hud.cancelTouchPointers() else touch.cancelAll() }
     override fun onDestroy() { scope.cancel(); super.onDestroy() }
 }

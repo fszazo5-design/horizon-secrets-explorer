@@ -15,6 +15,17 @@ class TouchState {
         moveY = (y / length).coerceIn(-1f, 1f)
     }
 
-    fun clearMove() { moveX = 0f; moveY = 0f }
+    fun clearMove() {
+        moveX = 0f
+        moveY = 0f
+    }
+
+    fun cancelAll() {
+        clearMove()
+        jumpPressed = false
+        pausePressed = false
+        mapRequested = false
+    }
+
     fun consumeJump(): Boolean = jumpPressed.also { jumpPressed = false }
 }
