@@ -19,7 +19,7 @@ class HudOverlay(
     private var state = HudState()
     private var mapVisible = true
     private var unlocked = 1
-    private var completed = listOf(true, false, false, false)
+    private var completed = listOf(false)
     private var joystickPointer = -1
     private var joystickCenterX = 150f
     private var joystickCenterY = 0f
@@ -37,27 +37,17 @@ class HudOverlay(
     }
 
     private fun drawMap(canvas: Canvas) {
-        paint.color = Color.argb(235, 4, 15, 29); canvas.drawRect(24f, 24f, width - 24f, height - 24f, paint)
-        paint.color = Color.rgb(98, 230, 255); paint.textSize = 42f; paint.textAlign = Paint.Align.RIGHT
-        canvas.drawText("خريطة العوالم", width - 54f, 92f, paint)
-        paint.color = Color.rgb(255, 200, 107); paint.textSize = 18f
-        canvas.drawText("مسارات الأفق · تقدمك محفوظ أوفلاين", width - 54f, 125f, paint)
-        val names = listOf("مدار الاتزان", "بصائر الظلال", "ميزان الماء", "مرآة الحقيقة")
-        val glyphs = listOf("◈", "◐", "≈", "✦")
-        for (i in 0..3) {
-            val row = i / 2; val col = i % 2
-            val left = 54f + col * ((width - 118f) / 2f); val top = 160f + row * 142f; val right = left + (width - 142f) / 2f
-            val available = i < unlocked
-            paint.color = if (available) Color.argb(220, 17, 57, 83) else Color.argb(150, 26, 30, 42)
-            canvas.drawRoundRect(RectF(left, top, right, top + 112f), 8f, 8f, paint)
-            paint.color = if (available) Color.rgb(98, 230, 255) else Color.GRAY; paint.textAlign = Paint.Align.RIGHT; paint.textSize = 27f
-            canvas.drawText(glyphs[i], right - 18f, top + 38f, paint)
-            paint.textSize = 21f; canvas.drawText(names[i], right - 56f, top + 38f, paint)
-            paint.textSize = 15f; paint.color = if (completed.getOrElse(i) { false }) Color.rgb(85, 240, 179) else Color.LTGRAY
-            canvas.drawText(if (completed.getOrElse(i) { false }) "مكتمل" else if (available) "متاح الآن" else "مغلق", right - 56f, top + 76f, paint)
-        }
-        paint.textAlign = Paint.Align.CENTER; paint.color = Color.LTGRAY; paint.textSize = 16f
-        canvas.drawText("المس: اختر عالماً · زر الرجوع: العودة", width / 2f, height - 50f, paint)
+        paint.color = Color.rgb(28, 42, 34); canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+        paint.color = Color.rgb(235, 219, 176); paint.textAlign = Paint.Align.CENTER; paint.textSize = 38f
+        canvas.drawText("رحلة المستكشف", width / 2f, height * .28f, paint)
+        paint.color = Color.rgb(190, 220, 177); paint.textSize = 19f
+        canvas.drawText("مستوى واحد · قرية واقعية", width / 2f, height * .36f, paint)
+        paint.color = Color.rgb(56, 126, 76)
+        canvas.drawRoundRect(RectF(width * .28f, height * .46f, width * .72f, height * .64f), 24f, 24f, paint)
+        paint.color = Color.WHITE; paint.textSize = 30f
+        canvas.drawText("▶  ابدأ اللعب", width / 2f, height * .575f, paint)
+        paint.color = Color.rgb(205, 215, 205); paint.textSize = 16f
+        canvas.drawText("المس الزر للبدء", width / 2f, height * .78f, paint)
     }
 
     private fun drawHud(canvas: Canvas) {
@@ -67,8 +57,8 @@ class HudOverlay(
         canvas.drawText("الرصيد ${state.score}   ${state.timeLeft}ث", width - 28f, 75f, paint)
         paint.color = Color.rgb(98, 230, 255); paint.textSize = 16f
         canvas.drawText("العالم ${state.level + 1} · ${state.message}", width - 28f, 106f, paint)
-        paint.color = Color.argb(90, 98, 230, 255); canvas.drawCircle(joystickCenterX, joystickCenterY, 72f, paint)
-        paint.color = Color.argb(190, 98, 230, 255); canvas.drawCircle(joystickCenterX + touch.moveX * 38f, joystickCenterY + touch.moveY * 38f, 30f, paint)
+        paint.color = Color.argb(105, 98, 160, 120); canvas.drawCircle(joystickCenterX, joystickCenterY, 86f, paint)
+        paint.color = Color.argb(220, 235, 245, 225); canvas.drawCircle(joystickCenterX + touch.moveX * 46f, joystickCenterY + touch.moveY * 46f, 34f, paint)
         paint.color = Color.argb(200, 255, 200, 107); canvas.drawCircle(width - 100f, height - 135f, 48f, paint)
         paint.color = Color.WHITE; paint.textAlign = Paint.Align.CENTER; paint.textSize = 17f; canvas.drawText("قفز", width - 100f, height - 129f, paint)
         paint.color = Color.argb(180, 167, 139, 250); canvas.drawCircle(width - 205f, height - 100f, 34f, paint); paint.color = Color.WHITE; canvas.drawText("خريطة", width - 205f, height - 95f, paint)
@@ -78,15 +68,14 @@ class HudOverlay(
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
                 if (mapVisible) return true
-                if (event.x < width * .45f) { if (joystickPointer == -1) joystickPointer = event.getPointerId(event.actionIndex); touch.setMove((event.x - joystickCenterX) / 70f, (event.y - joystickCenterY) / 70f) }
+                if (event.x < width * .45f) { if (joystickPointer == -1) joystickPointer = event.getPointerId(event.actionIndex); if (event.getPointerId(event.actionIndex) == joystickPointer) touch.setMove((event.x - joystickCenterX) / 86f, (event.y - joystickCenterY) / 86f) }
                 else if (event.x > width - 180f && event.y > height - 220f) touch.jumpPressed = true
                 else if (event.x > width - 260f && event.y > height - 180f) showMap()
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 if (mapVisible && event.actionMasked == MotionEvent.ACTION_UP) {
-                    val col = if (event.x > width / 2f) 0 else 1; val row = if (event.y > height / 2f) 1 else 0; val selected = row * 2 + col
-                    if (selected < unlocked) { mapVisible = false; onLevelSelected(selected) }
-                } else { joystickPointer = -1; touch.clearMove() }
+                    if (event.x > width * .24f && event.x < width * .76f && event.y > height * .42f && event.y < height * .68f) { mapVisible = false; onLevelSelected(0) }
+                } else if (event.getPointerId(event.actionIndex) == joystickPointer) { joystickPointer = -1; touch.clearMove() }
             }
         }
         invalidate(); return true

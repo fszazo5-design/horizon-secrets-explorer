@@ -26,6 +26,7 @@ class HorizonGame(
     private lateinit var environment: Environment
     private lateinit var camera: PerspectiveCamera
     private lateinit var explorer: ModelInstance
+    private val explorerParts = mutableListOf<ModelInstance>()
     private val objects = mutableListOf<ModelInstance>()
     private val cores = mutableListOf<Core>()
     private val celestial = mutableListOf<ModelInstance>()
@@ -36,7 +37,7 @@ class HorizonGame(
     private var elapsed = 0f
     private var remainingTime = 145f
     private var levelCompleteSent = false
-    private val colors = listOf(Color(0.10f, 0.62f, 0.72f, 1f), Color(0.42f, 0.28f, 0.72f, 1f), Color(0.10f, 0.72f, 0.50f, 1f), Color(0.86f, 0.45f, 0.20f, 1f))
+    private val colors = listOf(Color(0.10f, 0.62f, 0.72f, 1f))
 
     private data class Core(val instance: ModelInstance, val position: Vector3, var collected: Boolean = false)
 
@@ -54,7 +55,7 @@ class HorizonGame(
     }
 
     fun startLevel(index: Int) {
-        level = index.coerceIn(0, 3)
+        level = 0
         score = 0
         elapsed = 0f
         remainingTime = 145f - level * 12f
@@ -64,67 +65,48 @@ class HorizonGame(
         objects.clear()
         cores.clear()
         celestial.clear()
+        explorerParts.clear()
         val builder = ModelBuilder()
-        val accent = colors[level]
-        val platformMaterial = Material(ColorAttribute.createDiffuse(Color(0.36f, 0.58f, 0.28f, 1f)))
-        val soilMaterial = Material(ColorAttribute.createDiffuse(Color(0.38f, 0.24f, 0.16f, 1f)))
-        val wallMaterial = Material(ColorAttribute.createDiffuse(Color(0.82f, 0.67f, 0.43f, 1f)))
-        val roofMaterial = Material(ColorAttribute.createDiffuse(Color(0.62f, 0.22f, 0.14f, 1f)))
-        val edgeMaterial = Material(ColorAttribute.createDiffuse(accent))
-        val ground = ModelInstance(builder.createBox(150f, 1.2f, 150f, soilMaterial, 1L or 8L))
+        val accent = colors[0]
+        val grassMaterial = Material(ColorAttribute.createDiffuse(Color(0.28f, 0.52f, 0.24f, 1f)))
+        val roadMaterial = Material(ColorAttribute.createDiffuse(Color(0.22f, 0.22f, 0.20f, 1f)))
+        val wallMaterial = Material(ColorAttribute.createDiffuse(Color(0.76f, 0.62f, 0.42f, 1f)))
+        val roofMaterial = Material(ColorAttribute.createDiffuse(Color(0.45f, 0.16f, 0.10f, 1f)))
+        val skinMaterial = Material(ColorAttribute.createDiffuse(Color(0.72f, 0.43f, 0.27f, 1f)))
+        val shirtMaterial = Material(ColorAttribute.createDiffuse(Color(0.12f, 0.28f, 0.52f, 1f)))
+        val pantsMaterial = Material(ColorAttribute.createDiffuse(Color(0.08f, 0.10f, 0.14f, 1f)))
+        val ground = ModelInstance(builder.createBox(150f, 1.2f, 150f, grassMaterial, 1L or 8L))
         ground.transform.setToTranslation(0f, -5.8f, 0f)
         objects += ground
-        for (i in 0..9) {
-            val angle = i * 0.63f
-            val radius = 5.5f + (i % 3) * 2.2f
-            val platform = ModelInstance(builder.createBox(4.2f, 0.55f, 4.2f, platformMaterial, 1L or 8L))
-            platform.transform.setToTranslation(cos(angle) * radius, -0.35f + (i % 4) * 0.55f, sin(angle) * radius)
-            objects += platform
-            val crystal = ModelInstance(builder.createBox(0.28f, 1.2f, 0.28f, Material(ColorAttribute.createDiffuse(accent)), 1L or 8L))
-            crystal.transform.setToTranslation(cos(angle) * radius, 0.45f + (i % 4) * 0.55f, sin(angle) * radius)
-            objects += crystal
-            if (i % 2 == 0) {
-                val core = ModelInstance(builder.createSphere(0.55f, 0.55f, 0.55f, 12, 12, Material(ColorAttribute.createDiffuse(Color.GOLD)), 1L or 8L))
-                val corePosition = Vector3(cos(angle) * radius, 1.3f + (i % 4) * 0.55f, sin(angle) * radius)
-                core.transform.setToTranslation(corePosition)
-                cores += Core(core, corePosition)
-            }
+        val road = ModelInstance(builder.createBox(8f, 0.18f, 90f, roadMaterial, 1L or 8L))
+        road.transform.setToTranslation(0f, -5.12f, 0f); objects += road
+        for (i in 0..5) {
+            val z = -22f + i * 8f
+            val house = ModelInstance(builder.createBox(4.2f, 3.2f, 3.6f, wallMaterial, 1L or 8L))
+            house.transform.setToTranslation(if (i % 2 == 0) -10f else 10f, -3.5f, z); objects += house
+            val roof = ModelInstance(builder.createBox(4.8f, 1.2f, 4.2f, roofMaterial, 1L or 8L))
+            roof.transform.setToTranslation(if (i % 2 == 0) -10f else 10f, -1.3f, z); objects += roof
         }
-        // Decorative planet elements are optional: gameplay still starts if a device has a
-        // fragile renderer or runs out of GPU memory while creating the extra scenery.
-        try {
-            for (i in 0..11) {
-                val angle = i * 0.52f
-                val distance = 25f + (i % 4) * 5f
-                val x = cos(angle) * distance
-                val z = sin(angle) * distance
-                val house = ModelInstance(builder.createBox(2.4f, 1.8f, 2f, wallMaterial, 1L or 8L))
-                house.transform.setToTranslation(x, -4.25f, z)
-                objects += house
-                // A box roof is intentionally used for broad device compatibility.
-                val roof = ModelInstance(builder.createBox(3f, 1.35f, 2.6f, roofMaterial, 1L or 8L))
-                roof.transform.setToTranslation(x, -2.7f, z)
-                objects += roof
-            }
-            val sunA = ModelInstance(builder.createSphere(6f, 6f, 6f, 12, 12, Material(ColorAttribute.createDiffuse(Color(1f, 0.72f, 0.28f, 1f))), 1L or 8L))
-            sunA.transform.setToTranslation(-42f, 40f, -90f)
-            val sunB = ModelInstance(builder.createSphere(4f, 4f, 4f, 12, 12, Material(ColorAttribute.createDiffuse(Color(1f, 0.42f, 0.25f, 1f))), 1L or 8L))
-            sunB.transform.setToTranslation(34f, 28f, -100f)
-            val moonA = ModelInstance(builder.createSphere(3f, 3f, 3f, 12, 12, Material(ColorAttribute.createDiffuse(Color(0.78f, 0.9f, 1f, 1f))), 1L or 8L))
-            moonA.transform.setToTranslation(54f, 32f, -80f)
-            val moonB = ModelInstance(builder.createSphere(2f, 2f, 2f, 12, 12, Material(ColorAttribute.createDiffuse(Color(0.58f, 0.7f, 0.95f, 1f))), 1L or 8L))
-            moonB.transform.setToTranslation(-62f, 22f, -72f)
-            celestial += sunA; celestial += sunB; celestial += moonA; celestial += moonB
-            objects.addAll(celestial)
-        } catch (_: Throwable) {
-            celestial.clear()
+        for (i in 0..7) {
+            val tree = ModelInstance(builder.createCylinder(0.45f, 3.2f, 0.45f, 10, Material(ColorAttribute.createDiffuse(Color(0.30f, 0.16f, 0.08f, 1f))), 1L or 8L))
+            tree.transform.setToTranslation(if (i % 2 == 0) -5.8f else 5.8f, -3.55f, -28f + i * 7f); objects += tree
+            val crown = ModelInstance(builder.createSphere(2.6f, 2.6f, 2.6f, 12, 10, Material(ColorAttribute.createDiffuse(Color(0.16f, 0.42f, 0.18f, 1f))), 1L or 8L))
+            crown.transform.setToTranslation(if (i % 2 == 0) -5.8f else 5.8f, -0.8f, -28f + i * 7f); objects += crown
         }
-        val gate = ModelInstance(builder.createCylinder(3.2f, 0.45f, 0.45f, 32, edgeMaterial, 1L or 8L))
-        gate.transform.setToTranslation(0f, 2.4f, -12f)
-        objects += gate
-        explorer = ModelInstance(builder.createBox(3f, 6.8f, 2.2f, Material(ColorAttribute.createDiffuse(Color(0.20f, 0.16f, 0.52f, 1f))), 1L or 8L))
-        explorer.transform.setToTranslation(position.x, position.y + 2.55f, position.z)
-        objects += explorer
+        for (i in 0..5) {
+            val corePosition = Vector3(-2.6f + (i % 2) * 5.2f, -4.45f, -22f + i * 7f)
+            val core = ModelInstance(builder.createSphere(0.7f, 0.7f, 0.7f, 12, 12, Material(ColorAttribute.createDiffuse(Color.GOLD)), 1L or 8L))
+            core.transform.setToTranslation(corePosition); cores += Core(core, corePosition)
+        }
+        explorer = ModelInstance(builder.createCylinder(1.25f, 2.6f, 1.25f, 16, shirtMaterial, 1L or 8L))
+        val head = ModelInstance(builder.createSphere(1.55f, 1.55f, 1.55f, 16, 12, skinMaterial, 1L or 8L))
+        val legL = ModelInstance(builder.createCylinder(0.42f, 2.3f, 0.42f, 12, pantsMaterial, 1L or 8L))
+        val legR = ModelInstance(builder.createCylinder(0.42f, 2.3f, 0.42f, 12, pantsMaterial, 1L or 8L))
+        val armL = ModelInstance(builder.createCylinder(0.28f, 2.1f, 0.28f, 12, skinMaterial, 1L or 8L))
+        val armR = ModelInstance(builder.createCylinder(0.28f, 2.1f, 0.28f, 12, skinMaterial, 1L or 8L))
+        explorerParts += explorer; explorerParts += head; explorerParts += legL; explorerParts += legR; explorerParts += armL; explorerParts += armR
+        objects.addAll(explorerParts)
+        updateExplorerModel()
     }
 
     override fun render() {
@@ -139,8 +121,7 @@ class HorizonGame(
         position.y = (position.y + velocityY * dt).coerceAtLeast(1.25f).also { if (it <= 1.25f) velocityY = 0f }
         position.x = position.x.coerceIn(-22f, 22f)
         position.z = position.z.coerceIn(-24f, 18f)
-        explorer.transform.setToTranslation(position.x, position.y + 2.55f, position.z)
-        celestial.forEachIndexed { index, body -> body.transform.rotate(Vector3.Y, (if (index < 2) 0.012f else -0.006f) * dt) }
+        updateExplorerModel()
         for (core in cores) {
             if (!core.collected && position.dst(core.position) < 1.65f) {
                 core.collected = true
@@ -171,6 +152,17 @@ class HorizonGame(
         camera.viewportWidth = width.toFloat()
         camera.viewportHeight = height.toFloat()
         camera.update()
+    }
+
+    private fun updateExplorerModel() {
+        if (explorerParts.size < 6) return
+        val x = position.x; val y = position.y; val z = position.z
+        explorerParts[0].transform.setToTranslation(x, y + 1.55f, z)
+        explorerParts[1].transform.setToTranslation(x, y + 3.55f, z)
+        explorerParts[2].transform.setToTranslation(x - 0.58f, y + 0.25f, z)
+        explorerParts[3].transform.setToTranslation(x + 0.58f, y + 0.25f, z)
+        explorerParts[4].transform.setToTranslation(x - 1.02f, y + 1.55f, z)
+        explorerParts[5].transform.setToTranslation(x + 1.02f, y + 1.55f, z)
     }
 
     override fun dispose() { batch.dispose() }
